@@ -1,0 +1,157 @@
+service: aws-serverless-chatbot
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  memorySize: 256
+  timeout: 30
+  environment:
+    USERS_TABLE: ${self:service}-users-${self:provider.stage}
+    CONVERSATIONS_TABLE: ${self:service}-conversations-${self:provider.stage}
+    MESSAGES_TABLE: ${self:service}-messages-${self:provider.stage}
+    JWT_SECRET: ${env:JWT_SECRET, 'aws-serverless-chatbot-super-secret-jwt-key-2026'}
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY, ''}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.USERS_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.USERS_TABLE}/index/*"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.CONVERSATIONS_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.MESSAGES_TABLE}"
+
+functions:
+  # Custom Authorizer Lambda Function
+  jwtAuthorizer:
+    handler: backend/handlers/authorizer.handler
+
+  # Authentication Handlers
+  authRegister:
+    handler: backend/handlers/auth.register
+    events:
+      - httpApi:
+          path: /auth/register
+          method: post
+
+  authLogin:
+    handler: backend/handlers/auth.login
+    events:
+      - httpApi:
+          path: /auth/login
+          method: post
+
+  # Conversation History Handlers
+  listConversations:
+    handler: backend/handlers/history.listConversations
+    events:
+      - httpApi:
+          path: /conversations
+          method: get
+          authorizer:
+            name: jwtAuthorizer
+
+  createConversation:
+    handler: backend/handlers/history.createNewConversation
+    events:
+      - httpApi:
+          path: /conversations
+          method: post
+          authorizer:
+            name: jwtAuthorizer
+
+  getMessages:
+    handler: backend/handlers/history.getConversationMessages
+    events:
+      - httpApi:
+          path: /conversations/{conversationId}/messages
+          method: get
+          authorizer:
+            name: jwtAuthorizer
+
+  deleteConversation:
+    handler: backend/handlers/history.removeConversation
+    events:
+      - httpApi:
+          path: /conversations/{conversationId}
+          method: delete
+          authorizer:
+            name: jwtAuthorizer
+
+  # Chat Handler (Response Streaming)
+  chatStream:
+    handler: backend/handlers/chat.handleChatStream
+    timeout: 60
+    events:
+      - httpApi:
+          path: /chat
+          method: post
+          authorizer:
+            name: jwtAuthorizer
+
+resources:
+  Resources:
+    UsersDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: ${self:provider.environment.USERS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: EmailIndex
+            KeySchema:
+              - AttributeName: email
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+        BillingMode: PAY_PER_REQUEST
+
+    ConversationsDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: ${self:provider.environment.CONVERSATIONS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: conversationId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: conversationId
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    MessagesDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: ${self:provider.environment.MESSAGES_TABLE}
+        AttributeDefinitions:
+          - AttributeName: conversationId
+            AttributeType: S
+          - AttributeName: messageId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: conversationId
+            KeyType: HASH
+          - AttributeName: messageId
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST

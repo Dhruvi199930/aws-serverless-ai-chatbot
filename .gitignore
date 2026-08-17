@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Production builds & dist
+frontend/dist/
+frontend/build/
+
+# Database data & env secrets
+.env
+*.env
+backend/.env
+backend/.data/
+
+# Operating System & IDE junk
+.DS_Store
+Thum.db
+.vscode/
+.idea/
+*.log

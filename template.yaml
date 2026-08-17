@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AWS SAM template for AWS Serverless AI Chatbot with JWT Auth, DynamoDB, and Streaming Responses.
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: nodejs20.x
+    Environment:
+      Variables:
+        USERS_TABLE: !Ref UsersTable
+        CONVERSATIONS_TABLE: !Ref ConversationsTable
+        MESSAGES_TABLE: !Ref MessagesTable
+        JWT_SECRET: "aws-serverless-chatbot-super-secret-jwt-key-2026"
+
+Resources:
+  # API Gateway HTTP API
+  ChatbotHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: Prod
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - POST
+          - DELETE
+          - OPTIONS
+
+  # JWT Authorizer Function
+  AuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: handlers/authorizer.handler
+
+  # Register Function
+  RegisterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: handlers/auth.register
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            Path: /auth/register
+            Method: POST
+            ApiId: !Ref ChatbotHttpApi
+
+  # Login Function
+  LoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: handlers/auth.login
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            Path: /auth/login
+            Method: POST
+            ApiId: !Ref ChatbotHttpApi
+
+  # DynamoDB Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ChatbotUsers
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  ConversationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ChatbotConversations
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: conversationId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: conversationId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  MessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ChatbotMessages
+      AttributeDefinitions:
+        - AttributeName: conversationId
+          AttributeType: S
+        - AttributeName: messageId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: conversationId
+          KeyType: HASH
+        - AttributeName: messageId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+Outputs:
+  HttpApiEndpoint:
+    Description: "API Gateway HTTP API Endpoint URL"
+    Value: !Sub "https://${ChatbotHttpApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
