@@ -1,6 +1,6 @@
 # 🚀 AWS Serverless AI Chatbot
 
-A production-ready, full-stack **AWS Serverless AI Chatbot** built with **React 18**, **Node.js 20.x**, **AWS Lambda**, **Amazon API Gateway**, **Amazon DynamoDB**, **JWT Custom Authorizer**, **Voice STT/TTS**, **Document Attachment RAG**, **Live CloudWatch Telemetry**, and **OpenAI Response Streaming**.
+A full-stack **AWS Serverless AI Chatbot** built with **React 18**, **Node.js 20.x**, **AWS Lambda**, **Amazon API Gateway**, **Amazon DynamoDB**, **JWT Custom Authorizer**, **Voice STT/TTS**, **Document Attachment RAG**, **Live CloudWatch Telemetry**, and **OpenAI Response Streaming**.
 
 ![AWS Serverless Chatbot Architecture](https://img.shields.io/badge/AWS-Serverless-orange?style=for-the-badge&logo=amazon-aws)
 ![React](https://img.shields.io/badge/Frontend-React_18-blue?style=for-the-badge&logo=react)
